@@ -9,11 +9,14 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-class User extends Authenticatable implements FilamentUser, HasName
+class User extends Authenticatable implements FilamentUser, HasName, HasMedia
 {
   /** @use HasFactory<\Database\Factories\UserFactory> */
-  use HasFactory, Notifiable;
+  use HasFactory, Notifiable, InteractsWithMedia;
 
   protected $fillable = [
     'first_name',
@@ -37,6 +40,24 @@ class User extends Authenticatable implements FilamentUser, HasName
     ];
   }
 
+  const PROFILE = 'Profile Images';
+
+  protected $appends = ['profile_image', 'full_name'];
+
+  /**
+   * @return string
+   */
+  public function getProfileImageAttribute(): string
+  {
+    /** @var Media $media */
+    $media = $this->getMedia(self::PROFILE)->first();
+    if (!empty($media)) {
+      return $media->getFullUrl();
+    }
+
+    return '';
+  }
+
   public function getFilamentName(): string
   {
     return "{$this->first_name} {$this->last_name}";
@@ -56,5 +77,10 @@ class User extends Authenticatable implements FilamentUser, HasName
   public function address(): HasOne
   {
     return $this->hasOne(related: Address::class, foreignKey: 'user_id');
+  }
+
+  public function registerMediaCollections(): void
+  {
+    $this->addMediaCollection('avatars')->singleFile(); // Optional: allows only one file for the avatar
   }
 }

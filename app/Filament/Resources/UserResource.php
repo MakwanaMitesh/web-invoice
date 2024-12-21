@@ -3,110 +3,202 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
-use App\Filament\Resources\UserResource\RelationManagers;
+use App\Models\City;
+use App\Models\State;
 use App\Models\User;
 use Filament\Forms;
+use Filament\Forms\Get;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Columns\TextColumn;
-
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Forms\Set;
+use Illuminate\Support\Collection;
+use App\Filament\Exports\ProductExporter;
+use Filament\Tables\Actions\ExportAction;
 
 class UserResource extends Resource
 {
-    protected static ?string $model = User::class;
+  protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-user-group';
+  protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationLabel = 'Clients';
+  protected static ?string $clusterBreadcrumb = 'Clients';
 
-    public static function form(Form $form): Form
-    {
-        return $form
+  protected static ?string $navigationLabel = 'Clients';
+
+  public static function form(Form $form): Form
+  {
+    return $form->schema([
+      Forms\Components\Group::make()
+        ->schema([
+          Forms\Components\Section::make('Client Detail')
             ->schema([
-                Forms\Components\Section::make()
-                    ->schema([
-                        Forms\Components\TextInput::make('first_name')
-                            ->placeholder(__('First Name'))
-                            ->maxLength(255)
-                            ->required(),
-                        Forms\Components\TextInput::make('last_name')
-                            ->placeholder('Last Name')
-                            ->maxLength(255)
-                            ->required(),
-                        Forms\Components\TextInput::make('email')
-                            ->placeholder(placeholder: 'Email')
-                            ->maxLength(255)
-                            ->unique(ignoreRecord: true)
-                            ->required(),
-                        Forms\Components\TextInput::make('password')
-                            ->password()
-                            ->hiddenOn(operations: 'edit')
-                            ->placeholder('Password')
-                            ->required()
-                            ->revealable()
-                            ->minLength(8)
-                            ->label('Password'),
-
-                        Forms\Components\TextInput::make('password_confirmation')
-                            ->label('Confirm Password')
-                            ->placeholder('Confirm Password')
-                            ->password()
-                            ->hiddenOn(operations: 'edit')
-                            ->required()
-                            ->revealable()
-                            ->same('password')
-                            ->minLength(8),
-
-                        Forms\Components\FileUpload::make('attachments')
-                          ->label(label: 'Profile Image'),
-
-                        ])
-                    ->columns(2)
-            ]);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                TextColumn::make('full_name')
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        return $query
-                            ->orderBy('last_name', $direction)
-                            ->orderBy('first_name', $direction);
-                    })
-                    ->searchable(['first_name', 'last_name'])
+              Forms\Components\TextInput::make('first_name')
+                ->placeholder(__('First Name'))
+                ->maxLength(255)
+                ->required(),
+              Forms\Components\TextInput::make('last_name')
+                ->placeholder('Last Name')
+                ->maxLength(255)
+                ->required(),
+              Forms\Components\TextInput::make('email')
+                ->placeholder(placeholder: 'Email')
+                ->maxLength(255)
+                ->unique(ignoreRecord: true)
+                ->required(),
+              Forms\Components\TextInput::make('password')
+                ->password()
+                ->hiddenOn(operations: 'edit')
+                ->placeholder('Password')
+                ->required()
+                ->revealable()
+                ->minLength(8)
+                ->label('Password'),
+              Forms\Components\TextInput::make('password_confirmation')
+                ->label('Confirm Password')
+                ->placeholder('Confirm Password')
+                ->password()
+                ->hiddenOn(operations: 'edit')
+                ->required()
+                ->revealable()
+                ->same('password')
+                ->minLength(8),
+              Forms\Components\Toggle::make('status')
+                ->label('Status')
+                ->default(state: true)
+                ->extraAttributes(['class' => 'toggle-with-label']),
+              SpatieMediaLibraryFileUpload::make('profile_image')
+                ->label('Profile Image')
+                ->collection('Profile Images'),
             ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
-    }
+            ->columns(2),
 
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
+          Forms\Components\Section::make('Address Detail')
+            ->schema([
+              Forms\Components\TextInput::make('address.address_1')
+                ->placeholder(__('Address Line 1'))
+                ->maxLength(255)
+                ->required()
+                ->filled()
+                ->label('Address Line 1'),
 
-    public static function getPages(): array
-    {
-        return [
-            'index' => Pages\ListUsers::route('/'),
-            'create' => Pages\CreateUser::route('/create'),
-            'edit' => Pages\EditUser::route('/{record}/edit'),
-        ];
-    }
+              Forms\Components\TextInput::make('address.address_2')
+                ->placeholder(__('Address Line 2'))
+                ->maxLength(255),
+
+              Forms\Components\Select::make('address.country_id') // Relation field for Address Country
+                ->label('Country')
+                ->relationship('address.country', 'name') // Assuming 'address' is the relationship method in User
+                ->searchable()
+                ->preload()
+                ->placeholder(__('Country'))
+                ->live()
+                ->afterStateUpdated(function (Set $set): void {
+                  $set('address.state_id', null); // Reset state and city when country changes
+                  $set('address.city_id', null);
+                })
+                ->required(),
+
+              Forms\Components\Select::make('address.state_id')
+                ->label('State')
+                ->options(
+                  fn(Get $get): Collection => State::query()
+                    ->where('country_id', $get('address.country_id'))
+                    ->pluck('name', 'id')
+                )
+                ->searchable()
+                ->placeholder(__('State'))
+                ->preload()
+                ->live()
+                ->afterStateUpdated(function (Set $set): void {
+                  $set('address.city_id', null); // Reset city when state changes
+                })
+                ->required(),
+
+              Forms\Components\Select::make('address.city_id') // Relation field for Address City
+                ->label('City')
+                ->options(
+                  fn(Get $get): Collection => City::query() // You need to change this based on your city model
+                    ->where('state_id', $get('address.state_id'))
+                    ->pluck('name', 'id')
+                )
+                ->searchable()
+                ->placeholder(__('City'))
+                ->preload()
+                ->live()
+                ->required(),
+              Forms\Components\TextInput::make(name: 'address.zip_code')
+                ->placeholder(__('Zip Code'))
+                ->maxLength(255)
+                ->numeric()
+                ->required(),
+            ])
+            ->columns(2),
+        ])
+        ->columnSpan(['lg' => 2]),
+    ]);
+  }
+
+  public static function table(Table $table): Table
+  {
+    $records = User::all(); // Or any other data source
+
+    return $table
+      ->columns([
+        Tables\Columns\ImageColumn::make('profile_image')
+          ->label('Profile Image')
+          ->rounded()
+          ->width(50)
+          ->height(50),
+        TextColumn::make('full_name')
+          ->sortable(
+            query: function (Builder $query, string $direction): Builder {
+              return $query->orderBy('first_name', $direction)->orderBy('last_name', $direction);
+            }
+          )
+          ->searchable(['first_name', 'last_name']),
+        Tables\Columns\TextColumn::make('email')
+          ->searchable()
+          ->sortable()
+          ->toggleable(),
+        Tables\Columns\ToggleColumn::make('status')
+          ->label('Status')
+          ->sortable()
+          ->toggleable(isToggledHiddenByDefault: true),
+        Tables\Columns\TextColumn::make('created_at')
+          ->label('Created Date')
+          ->date()
+          ->searchable()
+          ->sortable()
+          ->toggleable(isToggledHiddenByDefault: true),
+      ])
+      ->filters([
+        //
+      ])
+      ->actions([
+        Tables\Actions\ViewAction::make(),
+        Tables\Actions\EditAction::make(),
+        Tables\Actions\DeleteAction::make(),
+      ])
+      ->headerActions([
+        ExportAction::make()
+          ->label('Export clients')
+          ->exporter(ProductExporter::class),
+      ])
+      ->bulkActions([Tables\Actions\BulkActionGroup::make([Tables\Actions\DeleteBulkAction::make()])])
+      ->actionsColumnLabel('Actions');
+  }
+
+  public static function getPages(): array
+  {
+    return [
+      'index' => Pages\ListUsers::route('/'),
+      'create' => Pages\CreateUser::route('/create'),
+      'edit' => Pages\EditUser::route('/{record}/edit'),
+    ];
+  }
 }

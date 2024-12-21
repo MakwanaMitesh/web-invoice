@@ -8,12 +8,24 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditUser extends EditRecord
 {
-    protected static string $resource = UserResource::class;
+  public static $label = 'Clients';
 
-    protected function getHeaderActions(): array
-    {
-        return [
-            Actions\DeleteAction::make(),
-        ];
-    }
+  public function getTitle(): string
+  {
+    return 'Create Client';
+  }
+  protected static string $resource = UserResource::class;
+
+  protected function getHeaderActions(): array
+  {
+    return [Actions\DeleteAction::make()];
+  }
+
+  protected function mutateFormDataBeforeFill(array $data): array
+  {
+    $data['user_id'] = auth()->id();
+
+    dd($data);
+    return $data;
+  }
 }
