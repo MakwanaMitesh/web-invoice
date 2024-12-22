@@ -8,6 +8,7 @@ use Filament\Forms;
 use Filament\Tables;
 use Filament\Resources\Resource;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use App\Helpers;
 
 class ProductResource extends Resource
 {
@@ -67,7 +68,10 @@ class ProductResource extends Resource
           ->sortable(),
         Tables\Columns\TextColumn::make('price')
           ->toggleable()
-          ->sortable(),
+          ->sortable()
+          ->getStateUsing(function ($record) {
+            return formatCurrency($record->price);
+          }),
       ])
       ->filters([
         // Add any filters if needed
