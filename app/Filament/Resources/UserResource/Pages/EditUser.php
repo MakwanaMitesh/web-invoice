@@ -5,6 +5,7 @@ namespace App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Actions\Action;
 
 class EditUser extends EditRecord
 {
@@ -12,20 +13,20 @@ class EditUser extends EditRecord
 
   public function getTitle(): string
   {
-    return 'Create Client';
+    return 'Edit Client';
   }
   protected static string $resource = UserResource::class;
 
   protected function getHeaderActions(): array
   {
-    return [Actions\DeleteAction::make()];
+    return [Action::make('back')
+    ->url(static::getResource()::getUrl()) // or you can use url(static::getResource()::getUrl())
+    ->button()
+    ->color('info'),Actions\DeleteAction::make()];
   }
 
-  protected function mutateFormDataBeforeFill(array $data): array
+  protected function getRedirectUrl(): string
   {
-    $data['user_id'] = auth()->id();
-
-    dd($data);
-    return $data;
+      return $this->getResource()::getUrl('index');
   }
 }

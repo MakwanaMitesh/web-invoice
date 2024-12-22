@@ -8,6 +8,7 @@ use App\Models\User;
 use Filament\Pages\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Actions\Action;
 
 class CreateUser extends CreateRecord
 {
@@ -41,5 +42,12 @@ class CreateUser extends CreateRecord
   protected function getRedirectUrl(): string
   {
       return $this->getResource()::getUrl('index');
+  }
+
+  protected function getHeaderActions(): array
+  {
+    return [Action::make('back')
+    ->url(static::getResource()::getUrl()) // or you can use url(static::getResource()::getUrl())
+    ->button()];
   }
 }

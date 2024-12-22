@@ -30,6 +30,10 @@ class UserResource extends Resource
 
   protected static ?string $navigationLabel = 'Clients';
 
+  public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+  {
+    return parent::getEloquentQuery()->with('address');
+  }
   public static function form(Form $form): Form
   {
     return $form->schema([
@@ -69,6 +73,7 @@ class UserResource extends Resource
                 ->minLength(8),
               Forms\Components\Toggle::make('status')
                 ->label('Status')
+                ->inline(false)
                 ->default(state: true)
                 ->extraAttributes(['class' => 'toggle-with-label']),
               SpatieMediaLibraryFileUpload::make('profile_image')
@@ -83,13 +88,12 @@ class UserResource extends Resource
                 ->placeholder(__('Address Line 1'))
                 ->maxLength(255)
                 ->required()
-                ->filled()
                 ->label('Address Line 1'),
 
               Forms\Components\TextInput::make('address.address_2')
                 ->placeholder(__('Address Line 2'))
-                ->maxLength(255),
-
+                ->maxLength(255)
+                ->label('Address Line 1'),
               Forms\Components\Select::make('address.country_id') // Relation field for Address Country
                 ->label('Country')
                 ->relationship('address.country', 'name') // Assuming 'address' is the relationship method in User
@@ -145,8 +149,6 @@ class UserResource extends Resource
 
   public static function table(Table $table): Table
   {
-    $records = User::all(); // Or any other data source
-
     return $table
       ->columns([
         Tables\Columns\ImageColumn::make('profile_image')
@@ -200,5 +202,23 @@ class UserResource extends Resource
       'create' => Pages\CreateUser::route('/create'),
       'edit' => Pages\EditUser::route('/{record}/edit'),
     ];
+  }
+
+  public static function mutateFormDataBeforeSave(array $data): array
+  {
+    if (isset($data['address'])) {
+      $addressData = $data['address'];
+      unset($data['address']);
+      request()->merge(['address' => $addressData]);
+    }
+
+    return $data;
+  }
+
+  public static function afterSave($record): void
+  {
+    if (request()->has('address')) {
+      $record->address()->updateOrCreate([], request('address'));
+    }
   }
 }

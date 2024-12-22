@@ -35,6 +35,7 @@ class TaxResource extends Resource
         ->numeric(),
       Forms\Components\Toggle::make('is_default')
         ->label('Is Default')
+        ->inline(false)
         ->default(false),
     ]);
   }
