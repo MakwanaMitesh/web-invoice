@@ -18,6 +18,7 @@ class ProductResource extends Resource
 
   public static function form(Forms\Form $form): Forms\Form
   {
+    
     return $form->schema([
       Forms\Components\TextInput::make('name')
         ->required()
