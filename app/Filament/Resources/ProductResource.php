@@ -9,16 +9,19 @@ use Filament\Tables;
 use Filament\Resources\Resource;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use App\Helpers;
+use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Model;
 
 class ProductResource extends Resource
 {
   protected static ?string $model = Product::class;
 
+  protected static ?string $recordTitleAttribute = 'name';
+
   protected static ?string $navigationIcon = 'heroicon-o-cube';
 
   public static function form(Forms\Form $form): Forms\Form
   {
-    
     return $form->schema([
       Forms\Components\TextInput::make('name')
         ->required()
@@ -54,6 +57,7 @@ class ProductResource extends Resource
         Tables\Columns\ImageColumn::make('image')
           ->label('Image')
           ->rounded()
+          ->toggleable()
           ->width(50)
           ->height(50),
         Tables\Columns\TextColumn::make('name')
@@ -75,7 +79,13 @@ class ProductResource extends Resource
           }),
       ])
       ->filters([
-        // Add any filters if needed
+        Tables\Filters\SelectFilter::make('category_id')
+          ->relationship('category', 'name')
+          ->label('Category')
+          ->searchable()
+          ->multiple()
+          ->placeholder(__('Category'))
+          ->preload(),
       ])
       ->actions([
         Tables\Actions\ViewAction::make(),
@@ -100,4 +110,18 @@ class ProductResource extends Resource
       'edit' => Pages\EditProduct::route('/{record}/edit'),
     ];
   }
+
+  public static function getGloballySearchableAttributes(): array
+  {
+    return ['name', 'category.name'];
+  }
+
+  // public static function getGlobalSearchResultDetails(Model $record): array
+  // {
+  //   /** @var Product $record */
+
+  //   return [
+  //     'Category' => optional($record->brand)->name,
+  //   ];
+  // }
 }

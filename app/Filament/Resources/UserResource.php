@@ -92,21 +92,21 @@ class UserResource extends Resource
                 ->placeholder(__('Address Line 1'))
                 ->maxLength(255)
                 ->required()
+                ->default(fn($record) => $record?->address?->address_1)
                 ->label('Address Line 1'),
-
               Forms\Components\TextInput::make('address.address_2')
                 ->placeholder(__('Address Line 2'))
                 ->maxLength(255)
-                ->label('Address Line 1'),
-              Forms\Components\Select::make('address.country_id') // Relation field for Address Country
+                ->label('Address Line 2'),
+              Forms\Components\Select::make('address.country_id')
                 ->label('Country')
-                ->relationship('address.country', 'name') // Assuming 'address' is the relationship method in User
                 ->searchable()
                 ->preload()
+                ->relationship('address.country', 'name')
                 ->placeholder(__('Country'))
                 ->live()
                 ->afterStateUpdated(function (Set $set): void {
-                  $set('address.state_id', null); // Reset state and city when country changes
+                  $set('address.state_id', null);
                   $set('address.city_id', null);
                 })
                 ->required(),
@@ -123,14 +123,14 @@ class UserResource extends Resource
                 ->preload()
                 ->live()
                 ->afterStateUpdated(function (Set $set): void {
-                  $set('address.city_id', null); // Reset city when state changes
+                  $set('address.city_id', null);
                 })
                 ->required(),
 
-              Forms\Components\Select::make('address.city_id') // Relation field for Address City
+              Forms\Components\Select::make('address.city_id')
                 ->label('City')
                 ->options(
-                  fn(Get $get): Collection => City::query() // You need to change this based on your city model
+                  fn(Get $get): Collection => City::query()
                     ->where('state_id', $get('address.state_id'))
                     ->pluck('name', 'id')
                 )
@@ -171,10 +171,15 @@ class UserResource extends Resource
           ->searchable()
           ->sortable()
           ->toggleable(),
-        Tables\Columns\ToggleColumn::make('status')
+        Tables\Columns\IconColumn::make('status')
           ->label('Status')
-          ->sortable()
-          ->toggleable(isToggledHiddenByDefault: true),
+          ->boolean()
+          ->toggleable()
+          ->action(function ($record, $column) {
+            $name = $column->getName();
+            $record->update([$name => !$record->$name]);
+          })
+          ->sortable(),
         Tables\Columns\TextColumn::make('created_at')
           ->label('Created Date')
           ->date()

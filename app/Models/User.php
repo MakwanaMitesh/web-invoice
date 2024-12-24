@@ -76,7 +76,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasMedia
 
   public function address(): HasOne
   {
-    return $this->hasOne(related: Address::class, foreignKey: 'user_id');
+    return $this->hasOne(Address::class, 'user_id');
   }
 
   public function registerMediaCollections(): void
