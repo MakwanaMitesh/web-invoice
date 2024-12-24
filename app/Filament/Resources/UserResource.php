@@ -19,6 +19,7 @@ use Filament\Forms\Set;
 use Illuminate\Support\Collection;
 use App\Filament\Exports\ProductExporter;
 use Filament\Tables\Actions\ExportAction;
+use Ysfkaya\FilamentPhoneInput\Forms\PhoneInput;
 
 class UserResource extends Resource
 {
@@ -54,6 +55,9 @@ class UserResource extends Resource
                 ->maxLength(255)
                 ->unique(ignoreRecord: true)
                 ->required(),
+              PhoneInput::make('contact')
+                ->strictMode()
+                ->countryStatePath('region_code'),
               Forms\Components\TextInput::make('password')
                 ->password()
                 ->hiddenOn(operations: 'edit')
@@ -71,14 +75,14 @@ class UserResource extends Resource
                 ->revealable()
                 ->same('password')
                 ->minLength(8),
+              SpatieMediaLibraryFileUpload::make('profile_image')
+                ->label('Profile Image')
+                ->collection('Profile Images'),
               Forms\Components\Toggle::make('status')
                 ->label('Status')
                 ->inline(false)
                 ->default(state: true)
                 ->extraAttributes(['class' => 'toggle-with-label']),
-              SpatieMediaLibraryFileUpload::make('profile_image')
-                ->label('Profile Image')
-                ->collection('Profile Images'),
             ])
             ->columns(2),
 

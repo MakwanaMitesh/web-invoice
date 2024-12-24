@@ -12,7 +12,8 @@
         "laravel/tinker": "^2.9",
         "livewire/livewire": "^3.5",
         "outerweb/filament-settings": "^1.2",
-        "outerweb/settings": "^1.0"
+        "outerweb/settings": "^1.0",
+        "ysfkaya/filament-phone-input": "^3.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -72,5 +73,3 @@
     "minimum-stability": "stable",
     "prefer-stable": true
 }
-
-
