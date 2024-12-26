@@ -57,6 +57,7 @@ class Settings extends BaseSettings
               ])
               ->default('.')
               ->required()
+              ->searchable()
               ->reactive(),
 
             Select::make('thousand_separator')
@@ -67,6 +68,7 @@ class Settings extends BaseSettings
                 '' => __(key: 'None'),
               ])
               ->default(',')
+              ->searchable()
               ->reactive(),
 
             TextInput::make('number_of_decimals')
@@ -82,11 +84,12 @@ class Settings extends BaseSettings
             Select::make('currency_position')
               ->label(__('Currency Position'))
               ->options([
-                'prefix' => __('Prefix ($123)'),
+                'prefix' => __('Prefix ($ 123)'),
                 'suffix' => __('Suffix (123 $)'),
               ])
               ->default('prefix')
               ->required()
+              ->searchable()
               ->reactive(),
 
             Select::make('rounding_method')
@@ -99,6 +102,7 @@ class Settings extends BaseSettings
               ->default('3')
               ->required()
               ->reactive()
+              ->searchable()
               ->helperText(fn($state) => $this->getRoundingMethodDescription($state)),
 
             Toggle::make('space_between_symbol')

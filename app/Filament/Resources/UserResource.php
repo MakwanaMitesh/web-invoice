@@ -9,6 +9,7 @@ use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Get;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -177,7 +178,15 @@ class UserResource extends Resource
           ->toggleable()
           ->action(function ($record, $column) {
             $name = $column->getName();
+            $newStatus = !$record->$name;
             $record->update([$name => !$record->$name]);
+            Notification::make()
+              // ->title('Status Updated')
+              ->title($newStatus ? 'The status is now active.' : 'The status is now inactive.')
+              // ->body($newStatus ? 'The status is now active.' : 'The status is now inactive.')
+              ->success()
+              ->duration(5000)
+              ->send();
           })
           ->sortable(),
         Tables\Columns\TextColumn::make('created_at')

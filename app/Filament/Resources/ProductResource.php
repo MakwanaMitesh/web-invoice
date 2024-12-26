@@ -35,6 +35,7 @@ class ProductResource extends Resource
         ->relationship('category', 'name')
         ->placeholder(__('Category'))
         ->searchable()
+        ->preload()
         ->required(),
       Forms\Components\TextInput::make('price')
         ->placeholder(__('Price'))
