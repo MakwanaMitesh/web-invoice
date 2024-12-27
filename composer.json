@@ -11,6 +11,7 @@
         "laravel/framework": "^11.9",
         "laravel/tinker": "^2.9",
         "livewire/livewire": "^3.5",
+        "malzariey/filament-daterangepicker-filter": "^3.1",
         "outerweb/filament-settings": "^1.2",
         "outerweb/settings": "^1.0",
         "ysfkaya/filament-phone-input": "^3.1"

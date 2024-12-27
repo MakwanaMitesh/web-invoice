@@ -47,6 +47,7 @@ class ProductResource extends Resource
         ->nullable(),
       SpatieMediaLibraryFileUpload::make('image')
         ->label('Image')
+        ->imageEditor()
         ->collection('Product Images'),
     ]);
   }

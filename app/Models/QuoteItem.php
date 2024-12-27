@@ -7,18 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class QuoteItem extends Model
 {
-    use HasFactory;
+  use HasFactory;
 
-    protected $fillable = [
-        'quote_id',
-        'product_id',
-        'quantity',
-        'price',
-        'amount',
-    ];
+  protected $fillable = ['quote_id', 'product_id', 'quantity', 'price', 'amount'];
 
-    public function quote()
-    {
-        return $this->belongsTo(Quote::class);
-    }
+  public function quote()
+  {
+    return $this->belongsTo(Quote::class);
+  }
+
+  public function product()
+  {
+    return $this->belongsTo(Product::class, 'product_id', 'id');
+  }
 }

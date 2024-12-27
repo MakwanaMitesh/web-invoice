@@ -78,6 +78,10 @@ class UserResource extends Resource
                 ->minLength(8),
               SpatieMediaLibraryFileUpload::make('profile_image')
                 ->label('Profile Image')
+                ->image()
+                ->avatar()
+                ->imageEditor()
+                ->circleCropper()
                 ->collection('Profile Images'),
               Forms\Components\Toggle::make('status')
                 ->label('Status')

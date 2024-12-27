@@ -23,6 +23,16 @@ class Quote extends Model
     'term',
   ];
 
+  const DRAFT = 0;
+  const CONVERTED = 1;
+  const STATUS_ALL = 2;
+
+  const STATUS_ARR = [
+      self::DRAFT => 'Draft',
+      self::CONVERTED => 'Converted',
+      self::STATUS_ALL => 'All',
+  ];
+
   public function quoteItems()
   {
     return $this->hasMany(QuoteItem::class);

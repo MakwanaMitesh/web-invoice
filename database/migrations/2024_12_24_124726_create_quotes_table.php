@@ -13,6 +13,7 @@ return new class extends Migration {
     Schema::create('quotes', function (Blueprint $table) {
       $table->id();
       $table->unsignedBigInteger('user_id');
+      $table->string('quote_name')->nullable();
       $table->string('quote_code')->unique();
       $table->date('quote_date')->nullable();
       $table->date('due_date')->nullable();

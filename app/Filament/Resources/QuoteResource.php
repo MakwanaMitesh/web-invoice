@@ -3,29 +3,16 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\QuoteResource\Pages;
-use App\Filament\Resources\QuoteResource\RelationManagers;
+use App\Models\Product;
 use App\Models\Quote;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use App\Models\City;
-use App\Models\State;
-use App\Models\User;
 use Illuminate\Support\Str;
-use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Forms\Get;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
-use Filament\Forms\Set;
-use Illuminate\Support\Collection;
-use App\Filament\Exports\ProductExporter;
-use Filament\Tables\Actions\ExportAction;
-use Ysfkaya\FilamentPhoneInput\Forms\PhoneInput;
+use Illuminate\Support\Facades\Log;
 
 class QuoteResource extends Resource
 {
@@ -38,6 +25,7 @@ class QuoteResource extends Resource
     return $form->schema([
       Forms\Components\Group::make()
         ->schema([
+          // Quote Detail Section
           Forms\Components\Section::make('Quote Detail')
             ->schema([
               Forms\Components\Select::make('user_id')
@@ -45,44 +33,143 @@ class QuoteResource extends Resource
                   name: 'user',
                   modifyQueryUsing: fn(Builder $query) => $query->orderBy('first_name')->orderBy('last_name')
                 )
-                ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->first_name} {$record->last_name}")
+                ->getOptionLabelFromRecordUsing(fn($record) => "{$record->first_name} {$record->last_name}")
                 ->preload()
                 ->searchable(['first_name', 'last_name']),
 
-                Forms\Components\TextInput::make('quote_code')
+              Forms\Components\TextInput::make('quote_code')
                 ->required()
-                ->unique(true)
-                ->label('Quote Code #') // Correctly spelled label
+                ->unique()
+                ->label('Quote Code #')
                 ->default(fn() => strtoupper(Str::random(6)))
-                ->minLength(6) // Ensures at least 6 characters
-                ->maxLength(6) // Ensures no more than 6 characters
                 ->suffixAction(
-                    Forms\Components\Actions\Action::make('refreshCode')
-                        ->label('Refresh Code')
-                        ->icon('heroicon-o-arrow-path') // Uses a refresh icon from Heroicons
-                        ->action(fn($get, $set) => $set('quote_code', strtoupper(Str::random(6))))
+                  Forms\Components\Actions\Action::make('refreshCode')
+                    ->label('Refresh Code')
+                    ->icon('heroicon-o-arrow-path')
+                    ->action(fn($set) => $set('quote_code', strtoupper(Str::random(6))))
                 ),
-              Forms\Components\DatePicker::make('quote_date'),
-              Forms\Components\DatePicker::make('due_date'),
-              Forms\Components\TextInput::make('status')
-                ->required()
-                ->maxLength(255)
-                ->default('draft'),
-              Forms\Components\TextInput::make('template_id')->numeric(),
-              Forms\Components\TextInput::make('discount')->numeric(),
-              Forms\Components\TextInput::make('discount_type')->maxLength(255),
-              Forms\Components\TextInput::make('final_amount')->numeric(),
+
+              Forms\Components\DatePicker::make('quote_date')
+                ->native(false)
+                ->placeholder('Quote Date')
+                ->displayFormat('d/m/Y'),
+
+              Forms\Components\DatePicker::make('due_date')
+                ->native(false)
+                ->placeholder('Due Date')
+                ->displayFormat('d/m/Y'),
+
               Forms\Components\Textarea::make('note'),
               Forms\Components\Textarea::make('term'),
             ])
+            ->collapsible()
             ->columns(2),
 
+          // Product Detail Section
           Forms\Components\Section::make('Product Detail')
-            ->schema([])
-            ->columns(2),
+            ->schema([
+              static::getItemsRepeater(), // Repeater for products
+              Forms\Components\TextInput::make('final_amount')
+                ->label('Final Amount')
+                ->numeric()
+                ->disabled()
+                ->default(0), // Final Total field
+            ])
+            ->collapsible(),
         ])
         ->columnSpan(['lg' => 2]),
     ]);
+  }
+
+  // Repeater for adding multiple products
+  public static function getItemsRepeater(): Forms\Components\Repeater
+  {
+    return Forms\Components\Repeater::make('quoteItems')
+      ->relationship()
+      ->reactive()
+      ->schema([
+        Forms\Components\Select::make('product_id')
+          ->label('Product')
+          ->options(Product::query()->pluck('name', 'id'))
+          ->required()
+          ->reactive()
+          ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+          ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+            if ($state) {
+              $product = Product::find($state);
+              if ($product) {
+                $set('price', $product->price);
+                $set('quantity', 1);
+                $set('amount', $product->price);
+              }
+            }
+
+            // Recalculate the final amount after product change
+            $quoteItems = $get('../../quoteItems');
+            $finalTotal = collect($quoteItems)->sum(function ($item) {
+              return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+            });
+            $set('../../final_amount', $finalTotal);
+          })
+          ->columnSpan(['md' => 5])
+          ->searchable(),
+
+        Forms\Components\TextInput::make('quantity')
+          ->label('Quantity')
+          ->numeric()
+          ->reactive()
+          ->minValue(1)
+          ->required()
+          ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+            $price = $get('price');
+            $quantity = $state ?? 1;
+            $amount = $price * $quantity;
+            $set('amount', $amount);
+
+            // Recalculate the final amount after quantity change
+            $quoteItems = $get('../../quoteItems');
+            $finalTotal = collect($quoteItems)->sum(function ($item) {
+              return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+            });
+            $set('../../final_amount', $finalTotal);
+          })
+          ->columnSpan(['md' => 2]),
+
+        Forms\Components\TextInput::make('price')
+          ->label('Unit Price')
+          ->numeric()
+          ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+            $quantity = $get('quantity');
+            $amount = $quantity * $state;
+            $set('amount', $amount);
+
+            // Recalculate the final amount after price change
+            $quoteItems = $get('../../quoteItems');
+            $finalTotal = collect($quoteItems)->sum(function ($item) {
+              return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+            });
+            $set('../../final_amount', $finalTotal);
+          })
+          ->columnSpan(['md' => 3]),
+
+        Forms\Components\TextInput::make('amount')
+          ->label('Total')
+          ->numeric()
+          ->disabled(true)
+          ->dehydrated(true)
+          ->inputMode('none')
+          ->columnSpan(['md' => 3]),
+      ])
+      ->defaultItems(1)
+      ->columns(['md' => 13])
+      ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+        // Recalculate the final amount whenever an item is deleted
+        $quoteItems = $get('quoteItems') ?? [];
+        $finalTotal = collect($quoteItems)->sum(function ($item) {
+          return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
+        });
+        $set('final_amount', $finalTotal);
+      });
   }
 
   public static function table(Table $table): Table
@@ -92,45 +179,9 @@ class QuoteResource extends Resource
         Tables\Columns\TextColumn::make('user_id')
           ->numeric()
           ->sortable(),
-        Tables\Columns\TextColumn::make('quote_code')->searchable(),
-        Tables\Columns\TextColumn::make('quote_date')
-          ->date()
-          ->sortable(),
-        Tables\Columns\TextColumn::make('due_date')
-          ->date()
-          ->sortable(),
-        Tables\Columns\TextColumn::make('status')->searchable(),
-        Tables\Columns\TextColumn::make('template_id')
-          ->numeric()
-          ->sortable(),
-        Tables\Columns\TextColumn::make('discount')
-          ->numeric()
-          ->sortable(),
-        Tables\Columns\TextColumn::make('discount_type')->searchable(),
-        Tables\Columns\TextColumn::make('final_amount')
-          ->numeric()
-          ->sortable(),
-        Tables\Columns\TextColumn::make('created_at')
-          ->dateTime()
-          ->sortable()
-          ->toggleable(isToggledHiddenByDefault: true),
-        Tables\Columns\TextColumn::make('updated_at')
-          ->dateTime()
-          ->sortable()
-          ->toggleable(isToggledHiddenByDefault: true),
-      ])
-      ->filters([
-        //
       ])
       ->actions([Tables\Actions\EditAction::make()])
-      ->bulkActions([Tables\Actions\BulkActionGroup::make([Tables\Actions\DeleteBulkAction::make()])]);
-  }
-
-  public static function getRelations(): array
-  {
-    return [
-        //
-      ];
+      ->bulkActions([Tables\Actions\DeleteBulkAction::make()]);
   }
 
   public static function getPages(): array

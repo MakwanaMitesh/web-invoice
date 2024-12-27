@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('quote_items', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('quote_id');
-            $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('product_id')->nullable();
             $table->integer('quantity')->default(1);
             $table->decimal('price', 12, 2);
             $table->decimal('amount', 12, 2);
