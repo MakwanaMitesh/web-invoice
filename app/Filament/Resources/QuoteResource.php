@@ -25,8 +25,8 @@ class QuoteResource extends Resource
     return $form->schema([
       Forms\Components\Group::make()
         ->schema([
-          // Quote Detail Section
-          Forms\Components\Section::make('Quote Detail')
+          // Previous Quote Detail Section remains the same...
+          Forms\Components\Section::make('Quote Details')
             ->schema([
               Forms\Components\Select::make('user_id')
                 ->relationship(
@@ -63,20 +63,79 @@ class QuoteResource extends Resource
               Forms\Components\Textarea::make('note'),
               Forms\Components\Textarea::make('term'),
             ])
-            ->collapsible()
             ->columns(2),
 
-          // Product Detail Section
-          Forms\Components\Section::make('Product Detail')
-            ->schema([
-              static::getItemsRepeater(), // Repeater for products
-              Forms\Components\TextInput::make('final_amount')
-                ->label('Final Amount')
-                ->numeric()
-                ->disabled()
-                ->default(0),
-            ])
-            ->collapsible(),
+          Forms\Components\Section::make('Product Details')->schema([static::getItemsRepeater()]),
+
+          Forms\Components\Section::make('Pricing Summary')->schema([
+            Forms\Components\Grid::make(4) // Changed to 4 columns
+              ->schema([
+                Forms\Components\TextInput::make('subtotal')
+                  ->label('Subtotal')
+                  ->numeric()
+                  ->disabled()
+                  ->default(0),
+
+                Forms\Components\Select::make('discount_type')
+                  ->label('Discount Type')
+                  ->options([
+                    'percentage' => 'Percentage (%)',
+                    'flat' => 'Flat Amount',
+                  ])
+                  ->default('percentage')
+                  ->searchable()
+                  ->reactive()
+                  ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                    $set('discount_value', 0);
+                    $set('discount_amount', 0);
+                    $subtotal = $get('subtotal');
+                    $set('final_amount', $subtotal);
+                  }),
+
+                Forms\Components\TextInput::make('discount_value')
+                  ->label(
+                    fn(Forms\Get $get) => $get('discount_type') === 'percentage' ? 'Discount (%)' : 'Discount Amount'
+                  )
+                  ->numeric()
+                  ->default(0)
+                  ->reactive()
+                  ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                    $subtotal = floatval($get('subtotal'));
+                    $discountType = $get('discount_type');
+                    $discountValue = floatval($state);
+
+                    if ($discountType === 'percentage') {
+                      $discountValue = min(100, max(0, $discountValue));
+                      $discountAmount = $subtotal * ($discountValue / 100);
+                    } else {
+                      $discountValue = min($subtotal, max(0, $discountValue));
+                      $discountAmount = $discountValue;
+                    }
+
+                    if (floatval($state) !== $discountValue) {
+                      $set('discount_value', $discountValue);
+                    }
+
+                    $set('discount_amount', round($discountAmount, 2));
+                    $finalAmount = $subtotal - $discountAmount;
+                    $set('final_amount', max(0, $finalAmount));
+                  }),
+
+                Forms\Components\TextInput::make('discount_amount')
+                  ->label('Discount Amount')
+                  ->numeric()
+                  ->disabled()
+                  ->default(0)
+                  ->prefix(fn() => config('money.currency_symbol', '$')),
+              ]),
+            Forms\Components\TextInput::make('final_amount')
+              ->label('Final Amount')
+              ->numeric()
+              ->disabled()
+              ->default(0)
+              ->prefix(fn() => config('money.currency_symbol', '$'))
+              ->columnSpanFull(),
+          ]),
         ])
         ->columnSpan(['lg' => 2]),
     ]);
@@ -104,12 +163,7 @@ class QuoteResource extends Resource
               }
             }
 
-            // Recalculate the final amount after product change
-            $quoteItems = $get('../../quoteItems');
-            $finalTotal = collect($quoteItems)->sum(function ($item) {
-              return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
-            });
-            $set('../../final_amount', $finalTotal);
+            static::recalculateAmounts($set, $get);
           })
           ->columnSpan(['md' => 5])
           ->searchable(),
@@ -122,17 +176,12 @@ class QuoteResource extends Resource
           ->minValue(1)
           ->required()
           ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-            $price = $get('price');
-            $quantity = $state ?? 1;
+            $price = floatval($get('price'));
+            $quantity = floatval($state ?? 1);
             $amount = $price * $quantity;
             $set('amount', $amount);
 
-            // Recalculate the final amount after quantity change
-            $quoteItems = $get('../../quoteItems');
-            $finalTotal = collect($quoteItems)->sum(function ($item) {
-              return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
-            });
-            $set('../../final_amount', $finalTotal);
+            static::recalculateAmounts($set, $get);
           })
           ->columnSpan(['md' => 2]),
 
@@ -143,16 +192,12 @@ class QuoteResource extends Resource
           ->required()
           ->placeholder(0)
           ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-            $quantity = $get('quantity');
-            $amount = $quantity * $state;
+            $quantity = floatval($get('quantity'));
+            $price = floatval($state);
+            $amount = $quantity * $price;
             $set('amount', $amount);
 
-            // Recalculate the final amount after price change
-            $quoteItems = $get('../../quoteItems');
-            $finalTotal = collect($quoteItems)->sum(function ($item) {
-              return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
-            });
-            $set('../../final_amount', $finalTotal);
+            static::recalculateAmounts($set, $get);
           })
           ->columnSpan(['md' => 3]),
 
@@ -169,15 +214,34 @@ class QuoteResource extends Resource
       ->required()
       ->columns(['md' => 13])
       ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-        // Recalculate the final amount whenever an item is deleted
-        $quoteItems = $get('quoteItems') ?? [];
-        $finalTotal = collect($quoteItems)->sum(function ($item) {
-          return ($item['quantity'] ?? 0) * ($item['price'] ?? 0);
-        });
-        $set('final_amount', $finalTotal);
+        static::recalculateAmounts($set, $get);
       });
   }
 
+  // New helper method to handle all calculations
+  protected static function recalculateAmounts(Forms\Set $set, Forms\Get $get): void
+  {
+    $quoteItems = $get('../../quoteItems') ?? [];
+    $subtotal = collect($quoteItems)->sum(function ($item) {
+      return floatval($item['quantity'] ?? 0) * floatval($item['price'] ?? 0);
+    });
+    $set('../../subtotal', $subtotal);
+
+    $discountType = $get('../../discount_type');
+    $discountValue = floatval($get('../../discount_value') ?? 0);
+
+    if ($discountType === 'percentage') {
+      $discountValue = min(100, max(0, $discountValue));
+      $discountAmount = $subtotal * ($discountValue / 100);
+    } else {
+      $discountValue = min($subtotal, max(0, $discountValue));
+      $discountAmount = $discountValue;
+    }
+
+    $set('../../discount_amount', round($discountAmount, 2));
+    $finalAmount = max(0, $subtotal - $discountAmount);
+    $set('../../final_amount', $finalAmount);
+  }
   public static function table(Table $table): Table
   {
     return $table
