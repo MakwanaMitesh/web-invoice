@@ -4,6 +4,31 @@ use App\Models\Currency;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Cache;
 
+if (!function_exists('getCurrencySymbol')) {
+  function getCurrencySymbol()
+  {
+    $currencyId = getSettingValue('currency_id');
+    $currencyId = (int) preg_replace('/[^0-9]/', '', $currencyId ?? '1');
+    $currency = Currency::find($currencyId);
+
+    return $currency ? $currency->icon : '$';
+  }
+}
+
+if (!function_exists('getSettingValue')) {
+  /**
+   * @param $keyName
+   * @return mixed
+   */
+  function getSettingValue($keyName)
+  {
+    /** @var Setting $setting */
+    $setting = Setting::where('key', '=', $keyName)->first();
+
+    return $setting->value;
+  }
+}
+
 if (!function_exists('formatCurrency')) {
   /**
    * Format the given amount based on the currency settings stored in the database.

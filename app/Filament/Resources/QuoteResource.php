@@ -38,11 +38,18 @@ class QuoteResource extends Resource
                 ->required()
                 ->searchable(['first_name', 'last_name']),
 
+              Forms\Components\TextInput::make('quote_name')
+                ->required()
+                ->placeholder('Quote Title')
+                ->label('Quote Title'),
+
               Forms\Components\TextInput::make('quote_code')
                 ->required()
                 ->unique()
+                ->placeholder('Quote Code')
                 ->label('Quote Code #')
                 ->default(fn() => strtoupper(Str::random(6)))
+                ->prefix('QT-')
                 ->suffixAction(
                   Forms\Components\Actions\Action::make('refreshCode')
                     ->label('Refresh Code')
@@ -52,16 +59,20 @@ class QuoteResource extends Resource
 
               Forms\Components\DatePicker::make('quote_date')
                 ->native(false)
+                ->label('Quote Date')
                 ->placeholder('Quote Date')
                 ->displayFormat('d/m/Y'),
 
               Forms\Components\DatePicker::make('due_date')
                 ->native(false)
+                ->label('Due Date')
                 ->placeholder('Due Date')
                 ->displayFormat('d/m/Y'),
 
-              Forms\Components\Textarea::make('note'),
-              Forms\Components\Textarea::make('term'),
+              Forms\Components\Textarea::make('note')->placeholder('Note'),
+              Forms\Components\Textarea::make('term')
+                ->label('Term & Condition')
+                ->placeholder('Term & Condition'),
             ])
             ->columns(2),
 
@@ -73,6 +84,7 @@ class QuoteResource extends Resource
                 Forms\Components\TextInput::make('subtotal')
                   ->label('Subtotal')
                   ->numeric()
+                  ->prefix(getCurrencySymbol())
                   ->disabled()
                   ->default(0),
 
@@ -82,7 +94,6 @@ class QuoteResource extends Resource
                     'percentage' => 'Percentage (%)',
                     'flat' => 'Flat Amount',
                   ])
-                  ->default('percentage')
                   ->searchable()
                   ->reactive()
                   ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
@@ -126,14 +137,15 @@ class QuoteResource extends Resource
                   ->numeric()
                   ->disabled()
                   ->default(0)
-                  ->prefix(fn() => config('money.currency_symbol', '$')),
+                  // ->prefix(fn() => config('money.currency_symbol', '$')),
+                  ->prefix(getCurrencySymbol()),
               ]),
             Forms\Components\TextInput::make('final_amount')
               ->label('Final Amount')
               ->numeric()
               ->disabled()
               ->default(0)
-              ->prefix(fn() => config('money.currency_symbol', '$'))
+              ->prefix(getCurrencySymbol())
               ->columnSpanFull(),
           ]),
         ])
@@ -190,6 +202,7 @@ class QuoteResource extends Resource
           ->numeric()
           ->minValue(1)
           ->required()
+          ->prefix(getCurrencySymbol())
           ->placeholder(0)
           ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
             $quantity = floatval($get('quantity'));
@@ -204,6 +217,7 @@ class QuoteResource extends Resource
         Forms\Components\TextInput::make('amount')
           ->label('Total')
           ->numeric()
+          ->prefix(getCurrencySymbol())
           ->placeholder(0)
           ->disabled(true)
           ->dehydrated(true)
