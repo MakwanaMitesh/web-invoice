@@ -35,6 +35,7 @@ class QuoteResource extends Resource
                 )
                 ->getOptionLabelFromRecordUsing(fn($record) => "{$record->first_name} {$record->last_name}")
                 ->preload()
+                ->required()
                 ->searchable(['first_name', 'last_name']),
 
               Forms\Components\TextInput::make('quote_code')
@@ -73,7 +74,7 @@ class QuoteResource extends Resource
                 ->label('Final Amount')
                 ->numeric()
                 ->disabled()
-                ->default(0), // Final Total field
+                ->default(0),
             ])
             ->collapsible(),
         ])
@@ -81,7 +82,6 @@ class QuoteResource extends Resource
     ]);
   }
 
-  // Repeater for adding multiple products
   public static function getItemsRepeater(): Forms\Components\Repeater
   {
     return Forms\Components\Repeater::make('quoteItems')
@@ -118,6 +118,7 @@ class QuoteResource extends Resource
           ->label('Quantity')
           ->numeric()
           ->reactive()
+          ->placeholder(0)
           ->minValue(1)
           ->required()
           ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
@@ -138,6 +139,9 @@ class QuoteResource extends Resource
         Forms\Components\TextInput::make('price')
           ->label('Unit Price')
           ->numeric()
+          ->minValue(1)
+          ->required()
+          ->placeholder(0)
           ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
             $quantity = $get('quantity');
             $amount = $quantity * $state;
@@ -155,12 +159,14 @@ class QuoteResource extends Resource
         Forms\Components\TextInput::make('amount')
           ->label('Total')
           ->numeric()
+          ->placeholder(0)
           ->disabled(true)
           ->dehydrated(true)
           ->inputMode('none')
           ->columnSpan(['md' => 3]),
       ])
       ->defaultItems(1)
+      ->required()
       ->columns(['md' => 13])
       ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
         // Recalculate the final amount whenever an item is deleted

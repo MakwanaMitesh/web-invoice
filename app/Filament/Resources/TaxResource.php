@@ -55,6 +55,9 @@ class TaxResource extends Resource
           ->formatStateUsing(fn($state) => number_format($state, 2)),
 
         Tables\Columns\ToggleColumn::make('is_default')
+          ->beforeStateUpdated(function (Tax $record) {
+              Tax::where('id', '!=', $record->id)->update(['is_default' => false]);
+          })
           ->label('Is Default')
           ->sortable()
           ->toggleable(),
