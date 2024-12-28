@@ -11,6 +11,7 @@ class Quote extends Model
 
   protected $fillable = [
     'user_id',
+    'quote_name',
     'quote_code',
     'quote_date',
     'due_date',
@@ -18,7 +19,9 @@ class Quote extends Model
     'template_id',
     'discount',
     'discount_type',
-    'final_amount',
+    'discount_amount',
+    'subtotal',
+    'amount',
     'note',
     'term',
   ];

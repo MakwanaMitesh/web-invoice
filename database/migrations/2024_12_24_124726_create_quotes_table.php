@@ -21,7 +21,10 @@ return new class extends Migration {
       $table->unsignedBigInteger('template_id')->nullable();
       $table->decimal('discount', 8, 2)->nullable();
       $table->string('discount_type')->nullable(); // Options: 'flat', 'percentage'
-      $table->decimal('final_amount', 12, 2)->nullable();
+      $table->decimal('subtotal', 12, 2)->nullable();
+      $table->decimal('discount_amount', 12, 2)->nullable();
+      $table->decimal('amount', 12, 2)->nullable();
+      $table->unsignedBigInteger('currency_id')->nullable();
       $table->text('note')->nullable();
       $table->text('term')->nullable();
       $table->timestamps();
@@ -31,12 +34,17 @@ return new class extends Migration {
         ->foreign('user_id')
         ->references('id')
         ->on('users')
-        ->onDelete('cascade');
+        ->onDelete('cascade')->onUpdate('cascade');
       $table
         ->foreign('template_id')
         ->references('id')
         ->on('templates')
         ->onDelete('set null');
+        $table
+        ->foreign('currency_id')
+        ->references('id')
+        ->on('currencies')
+        ->onDelete('set null')->onUpdate('cascade');
     });
   }
 

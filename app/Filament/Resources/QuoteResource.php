@@ -13,6 +13,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Filament\Forms\Components\Select;
+use Illuminate\Database\Eloquent\Model;
 
 class QuoteResource extends Resource
 {
@@ -29,14 +31,14 @@ class QuoteResource extends Resource
           Forms\Components\Section::make('Quote Details')
             ->schema([
               Forms\Components\Select::make('user_id')
-                ->relationship(
-                  name: 'user',
-                  modifyQueryUsing: fn(Builder $query) => $query->orderBy('first_name')->orderBy('last_name')
-                )
-                ->getOptionLabelFromRecordUsing(fn($record) => "{$record->first_name} {$record->last_name}")
                 ->preload()
                 ->required()
-                ->searchable(['first_name', 'last_name']),
+                ->relationship(
+                  name: 'user',
+                  modifyQueryUsing: fn (Builder $query) => $query->orderBy('first_name')->orderBy('last_name'),
+              )
+              ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->first_name} {$record->last_name}")
+              ->searchable(['first_name', 'last_name']),
 
               Forms\Components\TextInput::make('quote_name')
                 ->required()
@@ -100,7 +102,7 @@ class QuoteResource extends Resource
                     $set('discount_value', 0);
                     $set('discount_amount', 0);
                     $subtotal = $get('subtotal');
-                    $set('final_amount', $subtotal);
+                    $set('amount', $subtotal);
                   }),
 
                 Forms\Components\TextInput::make('discount_value')
@@ -129,7 +131,7 @@ class QuoteResource extends Resource
 
                     $set('discount_amount', round($discountAmount, 2));
                     $finalAmount = $subtotal - $discountAmount;
-                    $set('final_amount', max(0, $finalAmount));
+                    $set('amount', max(0, $finalAmount));
                   }),
 
                 Forms\Components\TextInput::make('discount_amount')
@@ -137,11 +139,10 @@ class QuoteResource extends Resource
                   ->numeric()
                   ->disabled()
                   ->default(0)
-                  // ->prefix(fn() => config('money.currency_symbol', '$')),
                   ->prefix(getCurrencySymbol()),
               ]),
-            Forms\Components\TextInput::make('final_amount')
-              ->label('Final Amount')
+            Forms\Components\TextInput::make('amount')
+              ->label('Total Amount')
               ->numeric()
               ->disabled()
               ->default(0)
@@ -171,7 +172,7 @@ class QuoteResource extends Resource
               if ($product) {
                 $set('price', $product->price);
                 $set('quantity', 1);
-                $set('amount', $product->price);
+                $set('total', $product->price);
               }
             }
 
@@ -191,7 +192,7 @@ class QuoteResource extends Resource
             $price = floatval($get('price'));
             $quantity = floatval($state ?? 1);
             $amount = $price * $quantity;
-            $set('amount', $amount);
+            $set('total', $amount);
 
             static::recalculateAmounts($set, $get);
           })
@@ -208,13 +209,13 @@ class QuoteResource extends Resource
             $quantity = floatval($get('quantity'));
             $price = floatval($state);
             $amount = $quantity * $price;
-            $set('amount', $amount);
+            $set('total', $amount);
 
             static::recalculateAmounts($set, $get);
           })
           ->columnSpan(['md' => 3]),
 
-        Forms\Components\TextInput::make('amount')
+        Forms\Components\TextInput::make('total')
           ->label('Total')
           ->numeric()
           ->prefix(getCurrencySymbol())
@@ -254,7 +255,7 @@ class QuoteResource extends Resource
 
     $set('../../discount_amount', round($discountAmount, 2));
     $finalAmount = max(0, $subtotal - $discountAmount);
-    $set('../../final_amount', $finalAmount);
+    $set('../../amount', $finalAmount);
   }
   public static function table(Table $table): Table
   {

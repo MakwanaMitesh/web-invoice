@@ -15,14 +15,15 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('quote_id');
             $table->unsignedBigInteger('product_id')->nullable();
+            $table->string('product_name')->nullable();
             $table->integer('quantity')->default(1);
-            $table->decimal('price', 12, 2);
-            $table->decimal('amount', 12, 2);
+            $table->decimal('price', 12, 2)->default(0);
+            $table->decimal('total', 12, 2)->default(0);
             $table->timestamps();
 
             // Foreign keys
             $table->foreign('quote_id')->references('id')->on('quotes')->onDelete('cascade');
-            $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
+            $table->foreign('product_id')->references('id')->on('products')->onDelete('set null');
         });
     }
 
