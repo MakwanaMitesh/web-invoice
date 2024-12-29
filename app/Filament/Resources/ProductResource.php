@@ -11,6 +11,7 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use App\Helpers;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class ProductResource extends Resource
 {
@@ -29,8 +30,17 @@ class ProductResource extends Resource
         ->maxLength(255),
       Forms\Components\TextInput::make('code')
         ->required()
+        ->unique()
+        ->maxLength(255)
         ->placeholder(__('Code'))
-        ->maxLength(255),
+        ->default(fn() => strtoupper(Str::random(6)))
+        ->prefix('SKU-')
+        ->suffixAction(
+          Forms\Components\Actions\Action::make('refreshCode')
+            ->label('Refresh Code')
+            ->icon('heroicon-o-arrow-path')
+            ->action(fn($set) => $set('code', strtoupper(Str::random(6))))
+        ),
       Forms\Components\Select::make('category_id')
         ->relationship('category', 'name')
         ->placeholder(__('Category'))
