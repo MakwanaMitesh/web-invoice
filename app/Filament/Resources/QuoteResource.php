@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Model;
+use Filament\Forms\Components\Actions\Action;
 
 class QuoteResource extends Resource
 {
@@ -35,10 +36,10 @@ class QuoteResource extends Resource
                 ->required()
                 ->relationship(
                   name: 'user',
-                  modifyQueryUsing: fn (Builder $query) => $query->orderBy('first_name')->orderBy('last_name'),
-              )
-              ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->first_name} {$record->last_name}")
-              ->searchable(['first_name', 'last_name']),
+                  modifyQueryUsing: fn(Builder $query) => $query->orderBy('first_name')->orderBy('last_name')
+                )
+                ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->first_name} {$record->last_name}")
+                ->searchable(['first_name', 'last_name']),
 
               Forms\Components\TextInput::make('quote_name')
                 ->required()
@@ -88,6 +89,7 @@ class QuoteResource extends Resource
                   ->numeric()
                   ->prefix(getCurrencySymbol())
                   ->disabled()
+                  ->reactive()
                   ->default(0),
 
                 Forms\Components\Select::make('discount_type')
@@ -97,6 +99,7 @@ class QuoteResource extends Resource
                     'flat' => 'Flat Amount',
                   ])
                   ->searchable()
+                  ->default('percentage')
                   ->reactive()
                   ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                     $set('discount_value', 0);
@@ -145,6 +148,7 @@ class QuoteResource extends Resource
               ->label('Total Amount')
               ->numeric()
               ->disabled()
+              ->reactive()
               ->default(0)
               ->prefix(getCurrencySymbol())
               ->columnSpanFull(),
@@ -229,6 +233,10 @@ class QuoteResource extends Resource
       ->required()
       ->columns(['md' => 13])
       ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+        $quantity = floatval($get('quantity'));
+        $price = floatval($state);
+        $amount = $quantity * $price;
+        $set('total', $amount);
         static::recalculateAmounts($set, $get);
       });
   }
@@ -236,15 +244,34 @@ class QuoteResource extends Resource
   // New helper method to handle all calculations
   protected static function recalculateAmounts(Forms\Set $set, Forms\Get $get): void
   {
+    $allData = $get();
+    $quoteItems = $allData['quoteItems'] ?? [];
+
     $quoteItems = $get('../../quoteItems') ?? [];
+
+    $quoteItemsNew = $allData['quoteItems'] ?? [];
+
+    foreach ($quoteItemsNew as $key => &$item) {
+      $item['quantity'] = $item['quantity'] ?? 1; // Default quantity to 1 if null
+      $item['price'] = $item['price'] ?? 0; // Default price to 0 if null
+      $item['total'] = $item['quantity'] * $item['price']; // Recalculate total
+    }
+
+    if (empty($quoteItems)) {
+      $quoteItems = $quoteItemsNew;
+    }
+
     $subtotal = collect($quoteItems)->sum(function ($item) {
       return floatval($item['quantity'] ?? 0) * floatval($item['price'] ?? 0);
     });
+
     $set('../../subtotal', $subtotal);
+    $set('subtotal', $subtotal);
 
     $discountType = $get('../../discount_type');
     $discountValue = floatval($get('../../discount_value') ?? 0);
 
+    // Calculate discount
     if ($discountType === 'percentage') {
       $discountValue = min(100, max(0, $discountValue));
       $discountAmount = $subtotal * ($discountValue / 100);
@@ -253,10 +280,15 @@ class QuoteResource extends Resource
       $discountAmount = $discountValue;
     }
 
+    // Set discount amounts
     $set('../../discount_amount', round($discountAmount, 2));
+
+    // Calculate final amount
     $finalAmount = max(0, $subtotal - $discountAmount);
-    $set('../../amount', $finalAmount);
+    Log::info('Final Amount: ' . $finalAmount);
+    $set('amount', $finalAmount);
   }
+
   public static function table(Table $table): Table
   {
     return $table
