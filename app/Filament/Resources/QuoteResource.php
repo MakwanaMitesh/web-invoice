@@ -84,14 +84,6 @@ class QuoteResource extends Resource
           Forms\Components\Section::make('Pricing Summary')->schema([
             Forms\Components\Grid::make(4) // Changed to 4 columns
               ->schema([
-                Forms\Components\TextInput::make('subtotal')
-                  ->label('Subtotal')
-                  ->numeric()
-                  ->prefix(getCurrencySymbol())
-                  ->disabled()
-                  ->reactive()
-                  ->default(0),
-
                 Forms\Components\Select::make('discount_type')
                   ->label('Discount Type')
                   ->options([
@@ -143,7 +135,16 @@ class QuoteResource extends Resource
                   ->disabled()
                   ->default(0)
                   ->prefix(getCurrencySymbol()),
+
+                Forms\Components\TextInput::make('subtotal')
+                  ->label('Subtotal')
+                  ->numeric()
+                  ->prefix(getCurrencySymbol())
+                  ->disabled()
+                  ->reactive()
+                  ->default(0),
               ]),
+
             Forms\Components\TextInput::make('amount')
               ->label('Total Amount')
               ->numeric()
