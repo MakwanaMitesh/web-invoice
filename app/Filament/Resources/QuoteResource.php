@@ -285,7 +285,7 @@ class QuoteResource extends Resource
 
     // Calculate final amount
     $finalAmount = max(0, $subtotal - $discountAmount);
-    Log::info('Final Amount: ' . $finalAmount);
+    $set('../../amount', $finalAmount);
     $set('amount', $finalAmount);
   }
 
