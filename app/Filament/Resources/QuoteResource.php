@@ -64,12 +64,14 @@ class QuoteResource extends Resource
                 ->native(false)
                 ->label('Quote Date')
                 ->placeholder('Quote Date')
+                ->closeOnDateSelection()
                 ->displayFormat('d/m/Y'),
 
               Forms\Components\DatePicker::make('due_date')
                 ->native(false)
                 ->label('Due Date')
                 ->placeholder('Due Date')
+                ->closeOnDateSelection()
                 ->displayFormat('d/m/Y'),
 
               Forms\Components\Textarea::make('note')->placeholder('Note'),
@@ -124,7 +126,7 @@ class QuoteResource extends Resource
                       $set('discount_value', $discountValue);
                     }
 
-                    $set('discount_amount', round($discountAmount, 2));
+                    $set('discount_amount', round($discountAmount, 4));
                     $finalAmount = $subtotal - $discountAmount;
                     $set('amount', max(0, $finalAmount));
                   }),
@@ -282,7 +284,7 @@ class QuoteResource extends Resource
     }
 
     // Set discount amounts
-    $set('../../discount_amount', round($discountAmount, 2));
+    $set('../../discount_amount', round($discountAmount, 4));
 
     // Calculate final amount
     $finalAmount = max(0, $subtotal - $discountAmount);
