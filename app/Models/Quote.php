@@ -9,6 +9,8 @@ class Quote extends Model
 {
   use HasFactory;
 
+  protected $table = 'quotes';
+
   protected $fillable = [
     'user_id',
     'quote_name',

@@ -81,7 +81,88 @@ class QuoteResource extends Resource
             ])
             ->columns(2),
 
-          Forms\Components\Section::make('Product Details')->schema([static::getItemsRepeater()]),
+          Forms\Components\Section::make('Product Details')->schema([
+            Forms\Components\Repeater::make('quoteItems')
+              ->relationship()
+              ->reactive()
+              ->schema([
+                Forms\Components\Select::make('product_id')
+                  ->label('Product')
+                  ->options(Product::query()->pluck('name', 'id'))
+                  ->required()
+                  ->reactive()
+                  ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                  ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                    if ($state) {
+                      $product = Product::find($state);
+                      if ($product) {
+                        $set('price', $product->price);
+                        $set('quantity', 1);
+                        $set('total', $product->price);
+                      }
+                    }
+
+                    static::recalculateAmounts($set, $get);
+                  })
+                  ->columnSpan(['md' => 5])
+                  ->searchable(),
+
+                Forms\Components\TextInput::make('quantity')
+                  ->label('Quantity')
+                  ->numeric()
+                  ->reactive()
+                  ->placeholder(0)
+                  ->minValue(1)
+                  ->required()
+                  ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                    $price = floatval($get('price'));
+                    $quantity = floatval($state ?? 1);
+                    $amount = $price * $quantity;
+                    $set('total', $amount);
+
+                    static::recalculateAmounts($set, $get);
+                  })
+                  ->columnSpan(['md' => 2]),
+
+                Forms\Components\TextInput::make('price')
+                  ->label('Unit Price')
+                  ->numeric()
+                  ->minValue(1)
+                  ->required()
+                  ->prefix(getCurrencySymbol())
+                  ->placeholder(0)
+                  ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                    $quantity = floatval($get('quantity'));
+                    $price = floatval($state);
+                    $amount = $quantity * $price;
+                    $set('total', $amount);
+
+                    static::recalculateAmounts($set, $get);
+                  })
+                  ->columnSpan(['md' => 3]),
+
+                Forms\Components\TextInput::make('total')
+                  ->label('Total')
+                  ->numeric()
+                  ->prefix(getCurrencySymbol())
+                  ->placeholder(0)
+                  ->disabled(true)
+                  ->dehydrated(true)
+                  ->inputMode('none')
+                  ->columnSpan(['md' => 3]),
+              ])
+              ->defaultItems(1)
+              ->required()
+              ->columns(['md' => 13])
+              ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                $quantity = floatval($get('quantity'));
+                $price = floatval($state);
+                $amount = $quantity * $price;
+                $set('total', $amount);
+                static::recalculateAmounts($set, $get);
+              }),
+            // static::getItemsRepeater()
+          ]),
 
           Forms\Components\Section::make('Pricing Summary')->schema([
             Forms\Components\Grid::make(4) // Changed to 4 columns
@@ -96,13 +177,13 @@ class QuoteResource extends Resource
                   ->default('percentage')
                   ->reactive()
                   ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
-                    $set('discount_value', 0);
+                    $set('discount', 0);
                     $set('discount_amount', 0);
                     $subtotal = $get('subtotal');
                     $set('amount', $subtotal);
                   }),
 
-                Forms\Components\TextInput::make('discount_value')
+                Forms\Components\TextInput::make('discount')
                   ->label(
                     fn(Forms\Get $get) => $get('discount_type') === 'percentage' ? 'Discount (%)' : 'Discount Amount'
                   )
@@ -123,7 +204,7 @@ class QuoteResource extends Resource
                     }
 
                     if (floatval($state) !== $discountValue) {
-                      $set('discount_value', $discountValue);
+                      $set('discount', $discountValue);
                     }
 
                     $set('discount_amount', round($discountAmount, 4));
@@ -135,6 +216,7 @@ class QuoteResource extends Resource
                   ->label('Discount Amount')
                   ->numeric()
                   ->disabled()
+                  ->dehydrated(true)
                   ->default(0)
                   ->prefix(getCurrencySymbol()),
 
@@ -143,6 +225,7 @@ class QuoteResource extends Resource
                   ->numeric()
                   ->prefix(getCurrencySymbol())
                   ->disabled()
+                  ->dehydrated(true)
                   ->reactive()
                   ->default(0),
               ]),
@@ -152,6 +235,7 @@ class QuoteResource extends Resource
               ->numeric()
               ->disabled()
               ->reactive()
+              ->dehydrated(true)
               ->default(0)
               ->prefix(getCurrencySymbol())
               ->columnSpanFull(),
@@ -272,7 +356,7 @@ class QuoteResource extends Resource
     $set('subtotal', $subtotal);
 
     $discountType = $get('../../discount_type');
-    $discountValue = floatval($get('../../discount_value') ?? 0);
+    $discountValue = floatval($get('../../discount') ?? 0);
 
     // Calculate discount
     if ($discountType === 'percentage') {

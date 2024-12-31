@@ -9,7 +9,16 @@ class QuoteItem extends Model
 {
   use HasFactory;
 
-  protected $fillable = ['quote_id', 'product_id', 'product_name','quantity', 'price', 'total'];
+
+  protected $table = 'quote_items';
+  protected $fillable = [
+    'quote_id',
+    'product_id',
+    'product_name',
+    'quantity',
+    'price',
+    'total'
+  ];
 
   public function quote()
   {
